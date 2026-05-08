@@ -7,8 +7,9 @@ interface ThemeCtx { theme: Theme; toggle: () => void; }
 
 const Ctx = createContext<ThemeCtx | null>(null);
 
+// Mirror the inline pre-paint script in index.html: dark unless the user explicitly opted in to light.
 function readInitial(): Theme {
-  if (typeof document === "undefined") return "light";
+  if (typeof document === "undefined") return "dark";
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 

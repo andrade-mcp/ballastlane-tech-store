@@ -4,12 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BallastlaneTechStore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <script>
-      // Apply theme before paint to avoid a flash. Default is light.
+      // Apply theme before paint to avoid a flash. Default is dark (brand-first);
+      // user can override per-session via the avatar menu.
       (function () {
         try {
-          if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
-        } catch (_) {}
+          if (localStorage.getItem("theme") !== "light") document.documentElement.classList.add("dark");
+        } catch (_) { document.documentElement.classList.add("dark"); }
       })();
     </script>
   </head>

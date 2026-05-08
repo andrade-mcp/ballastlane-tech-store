@@ -2,51 +2,67 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Light is default; .dark on <html> flips to dark. */
-:root {
-  --radius: 0.625rem;
+/* Brand palette inspired by ballastlane.com — near-black canvas, single bright
+   orange accent, serif headlines + sans body. Light is the day-mode counterpart;
+   .dark on <html> flips to the brand-default dark. */
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
+:root {
+  --radius: 0.5rem;
+
+  /* Light treatment — used by default. */
+  --background: #fafafa;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+
+  --primary: #fe5a0b;
+  --primary-foreground: #ffffff;
+
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #fff1e8;
+  --accent-foreground: #b34607;
+
+  --destructive: #dc2626;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #fe5a0b;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a1a1a;
+  --sidebar-border: #e4e4e7;
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 12%);
+  --background: #0d0d0d;
+  --foreground: #fafafa;
+  --card: #161616;
+  --card-foreground: #fafafa;
+  --popover: #161616;
+  --popover-foreground: #fafafa;
+
+  --primary: #fe5a0b;
+  --primary-foreground: #1a0f08;
+
+  --secondary: #1f1f1f;
+  --secondary-foreground: #fafafa;
+  --muted: #1f1f1f;
+  --muted-foreground: #a1a1aa;
+  --accent: #2a1709;
+  --accent-foreground: #ffb27a;
+
+  --destructive: #ef4444;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #fe5a0b;
+
+  --sidebar: #0d0d0d;
+  --sidebar-foreground: #fafafa;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
 }
 
 @layer base {
@@ -54,20 +70,42 @@
   html, body, #root { height: 100%; }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  /* Serif headlines are part of the brand voice. */
+  h1, h2, .display {
+    font-family: "Source Serif 4", "Source Serif Pro", Georgia, "Times New Roman", serif;
+    letter-spacing: -0.01em;
   }
 }
 
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50; }
-  .btn-primary { @apply btn bg-primary text-primary-foreground hover:opacity-90; }
-  .btn-ghost { @apply btn text-foreground hover:bg-accent; }
-  .btn-outline { @apply btn border bg-background hover:bg-accent; }
-  .input { @apply w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm outline-none focus:ring-2 focus:ring-ring; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+  .btn-primary { @apply btn bg-primary text-primary-foreground hover:brightness-110; }
+  /* Brand uses outline/ghost CTAs more than solid pills. */
+  .btn-outline { @apply btn border border-border bg-transparent hover:border-primary hover:text-primary; }
+  .btn-ghost { @apply btn text-foreground hover:bg-accent hover:text-accent-foreground; }
+  .btn-destructive { @apply btn bg-transparent text-destructive hover:bg-destructive/10; }
+
+  .input {
+    @apply w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors
+           focus:border-primary focus:ring-1 focus:ring-primary;
+  }
   .label { @apply mb-1 block text-sm font-medium; }
+
   .card { @apply rounded-lg border bg-card text-card-foreground shadow-sm; }
+
   .badge { @apply inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium; }
+
   .table { @apply w-full border-collapse text-sm; }
   .table th { @apply border-b px-3 py-2 text-left font-medium text-muted-foreground; }
   .table td { @apply border-b px-3 py-2; }
+}
+
+/* Subtle accent bar — used on KPI cards / feature blocks to break up the dark canvas. */
+.accent-rule {
+  background: linear-gradient(90deg, var(--primary) 0%, transparent 60%);
+  height: 2px;
 }
