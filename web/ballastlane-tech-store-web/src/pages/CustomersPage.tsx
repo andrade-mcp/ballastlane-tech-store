@@ -9,6 +9,13 @@ import {
 import { formatDate } from "@/lib/format";
 import { CustomerStatusBadge } from "@/components/Badges";
 import { Modal } from "@/components/Modal";
+import { StatusPicker } from "@/components/StatusPicker";
+
+// Forward-only lifecycle: anything → Churned, otherwise only later statuses.
+function nextStatusesFor(current: CustomerStatus): CustomerStatus[] {
+  if (current === "Churned") return [];
+  return customerStatuses.filter((s) => s !== current && (s === "Churned" || customerStatuses.indexOf(s) > customerStatuses.indexOf(current)));
+}
 
 interface CustomerForm { company: string; contactName: string; email: string; phone: string; }
 interface RawCustomer extends Omit<CustomerDto, "status"> { status: number }
@@ -75,11 +82,17 @@ export function CustomersPage() {
                 <td className="font-medium">{c.company}</td>
                 <td>{c.contactName}</td>
                 <td className="text-muted-foreground">{c.email}</td>
-                <td><CustomerStatusBadge status={c.status} /></td>
+                <td>
+                  <StatusPicker
+                    current={c.status}
+                    options={nextStatusesFor(c.status)}
+                    onPick={(s) => promoteMut.mutate({ id: c.id, status: s })}
+                    trigger={<CustomerStatusBadge status={c.status} />}
+                  />
+                </td>
                 <td className="text-muted-foreground">{formatDate(c.updatedAt)}</td>
                 <td className="text-right">
-                  <PromoteMenu customer={c} onPromote={(s) => promoteMut.mutate({ id: c.id, status: s })} />
-                  <button className="btn-ghost ml-1" onClick={() => setEditing(c)}>Edit</button>
+                  <button className="btn-ghost" onClick={() => setEditing(c)}>Edit</button>
                   <button className="btn-ghost text-destructive"
                           onClick={() => { if (confirm(`Delete ${c.company}?`)) deleteMut.mutate(c.id); }}>
                     Delete
@@ -110,23 +123,6 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
             className={`badge cursor-pointer ${active ? "bg-primary text-primary-foreground border-primary" : ""}`}>
       {children}
     </button>
-  );
-}
-
-function PromoteMenu({ customer, onPromote }: { customer: CustomerDto; onPromote: (s: CustomerStatus) => void }) {
-  const next = customerStatuses.filter((s) => {
-    if (s === customer.status) return false;
-    if (customer.status === "Churned") return false;
-    if (s === "Churned") return true;
-    return customerStatuses.indexOf(s) > customerStatuses.indexOf(customer.status);
-  });
-  if (next.length === 0) return null;
-  return (
-    <select className="rounded-md border bg-background px-2 py-1 text-xs" value=""
-            onChange={(e) => { if (e.target.value) onPromote(e.target.value as CustomerStatus); }}>
-      <option value="">Move to…</option>
-      {next.map((s) => <option key={s} value={s}>{s}</option>)}
-    </select>
   );
 }
 
