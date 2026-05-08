@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ballastlanetechstore-postgres
+    environment:
+      POSTGRES_DB: techstore
+      POSTGRES_USER: store
+      POSTGRES_PASSWORD: store
+    # Host port 5434 dodges any local Postgres on 5432 + the CRM project on 5433.
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U store -d techstore"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  auth-api:
+    build:
+      context: .
+      dockerfile: src/BallastlaneTechStore.Auth.Api/Dockerfile
+    container_name: ballastlanetechstore-auth
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=techstore;Username=store;Password=store;Pooling=true"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-dev-only-please-replace-with-a-32-byte-random-secret}"
+      Cors__AllowedOrigins__0: "http://localhost:5174"
+    ports:
+      - "5101:8080"
+
+  store-api:
+    build:
+      context: .
+      dockerfile: src/BallastlaneTechStore.Store.Api/Dockerfile
+    container_name: ballastlanetechstore-store
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=techstore;Username=store;Password=store;Pooling=true"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-dev-only-please-replace-with-a-32-byte-random-secret}"
+      Cors__AllowedOrigins__0: "http://localhost:5174"
+    ports:
+      - "5102:8080"
+
+volumes:
+  postgres_data:
