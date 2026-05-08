@@ -1,0 +1,48 @@
+# build
+bin/
+obj/
+out/
+publish/
+
+# vs / rider / vscode
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userprefs
+
+# test
+TestResults/
+*.coverage
+coverage*.json
+coverage*.xml
+.coverage/
+
+# logs
+*.log
+logs/
+
+# os
+.DS_Store
+Thumbs.db
+
+# secrets
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+.env.local
+.env.*.local
+
+# node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# misc
+*.bak
+*.tmp
+
+# the interview pdfs aren't ours to redistribute
+*.pdf
