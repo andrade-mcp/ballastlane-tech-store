@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { auth, tokenStore } from "@/lib/api";
-import type { AuthResponse, UserDto } from "@/lib/types";
+import { normaliseUser, type AuthResponse, type UserDto } from "@/lib/types";
 
 interface AuthState {
   user: UserDto | null;
@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!tokenStore.get()) { setLoading(false); return; }
     auth.get<UserDto>("/api/auth/me")
-      .then((r) => setUser(r.data))
+      .then((r) => setUser(normaliseUser(r.data)))
       .catch(() => tokenStore.clear())
       .finally(() => setLoading(false));
   }, []);
@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const { data } = await auth.post<AuthResponse>("/api/auth/login", { email, password });
     tokenStore.set(data.token);
-    setUser(data.user);
+    setUser(normaliseUser(data.user));
   };
 
   const register = async (email: string, password: string, displayName: string) => {

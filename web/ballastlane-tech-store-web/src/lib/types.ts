@@ -60,10 +60,18 @@ export const productCategoryToInt: Record<ProductCategory, number> = {
   Cpu: 0, Gpu: 1, Ram: 2, Ssd: 3, Motherboard: 4, Psu: 5, Case: 6, Cooler: 7,
 };
 export const orderStatusToInt: Record<OrderStatus, number> = { Draft: 0, Confirmed: 1, Fulfilled: 2, Cancelled: 3 };
+export const userRoleToInt: Record<UserRole, number> = { SalesRep: 0, Manager: 1, Admin: 2 };
 
 export const customerStatusFromInt = invert(customerStatusToInt);
 export const productCategoryFromInt = invert(productCategoryToInt);
 export const orderStatusFromInt = invert(orderStatusToInt);
+export const userRoleFromInt = invert(userRoleToInt);
+
+// Auth payloads can arrive with role as either string ("Manager") or numeric (1).
+// Normalise to the string union so downstream code doesn't need to care.
+export function normaliseUser<T extends { role: UserRole | number }>(u: T): T & { role: UserRole } {
+  return { ...u, role: typeof u.role === "number" ? userRoleFromInt[u.role] : u.role };
+}
 
 function invert<K extends string>(m: Record<K, number>): Record<number, K> {
   const out: Record<number, K> = {};
