@@ -70,7 +70,7 @@ export function ProductsPage() {
         <table className="table">
           <thead>
             <tr><th>SKU</th><th>Name</th><th>Category</th><th>Brand</th>
-                <th className="text-right">Price</th><th className="text-right">Stock</th>
+                <th className="text-center">Price</th><th className="text-center">Stock</th>
                 <th className="text-right">Actions</th></tr>
           </thead>
           <tbody>
@@ -81,8 +81,8 @@ export function ProductsPage() {
                 <td className="font-medium">{p.name}</td>
                 <td className="text-muted-foreground">{p.category}</td>
                 <td>{p.brand}</td>
-                <td className="text-right">{formatCurrency(p.price)}</td>
-                <td className="text-right">
+                <td className="text-center">{formatCurrency(p.price)}</td>
+                <td className="text-center">
                   <span className={p.stockOnHand <= 5 ? "badge bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30" : ""}>
                     {p.stockOnHand}
                   </span>
