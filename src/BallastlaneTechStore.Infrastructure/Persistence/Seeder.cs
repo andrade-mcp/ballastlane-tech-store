@@ -44,24 +44,25 @@ public sealed class Seeder : ISeeder
         var demo = User.Create(DemoEmail, _hasher.Hash(DemoPassword), "Demo Sales Rep", UserRole.Manager, now);
         await _users.AddAsync(demo, ct);
 
-        // Customers: a couple at every lifecycle state so filters have something to show.
+        // Customers: big-tech companies + their CEOs at each lifecycle state.
+        // Names/companies are public; the @-domains are demo-only fillers.
         var leads = new[]
         {
-            Customer.Create("Helios Workstations", "Nora Halid",  "nora@helios.io",       "+1 415 555 0142", demo.Id, now),
-            Customer.Create("Polar Edge Studios",  "Mia Tan",     "mia@polaredge.gg",     "+44 20 7946 0992", demo.Id, now),
+            Customer.Create("Google",       "Sundar Pichai",      "sundar.pichai@google.com",     "+1 650 555 0142", demo.Id, now),
+            Customer.Create("Meta",         "Mark Zuckerberg",    "mark.zuckerberg@meta.com",     "+1 650 555 0188", demo.Id, now),
         };
         var prospects = new[]
         {
-            Customer.Create("Vantablack Renders",  "Eli Park",    "eli@vantablack.studio", "+1 503 555 0179", demo.Id, now),
+            Customer.Create("Amazon",       "Andy Jassy",         "andy.jassy@amazon.com",        "+1 206 555 0179", demo.Id, now),
         };
         var actives = new[]
         {
-            Customer.Create("Northwind Datacenters","Sasha Wu",   "sasha@northwind.cloud","+1 206 555 0188", demo.Id, now),
-            Customer.Create("OakHill AI Lab",       "Dev Patel",  "dev@oakhill.ai",       "+1 617 555 0117", demo.Id, now),
+            Customer.Create("Apple",        "Tim Cook",           "tim.cook@apple.com",           "+1 408 555 0117", demo.Id, now),
+            Customer.Create("Microsoft",    "Satya Nadella",      "satya.nadella@microsoft.com",  "+1 425 555 0144", demo.Id, now),
         };
         var churned = new[]
         {
-            Customer.Create("Atlas Cinematics",     "Rae Kim",    "rae@atlascine.media",  null, demo.Id, now),
+            Customer.Create("Tesla",        "Elon Musk",          "elon.musk@tesla.com",          null,             demo.Id, now),
         };
 
         foreach (var c in leads) await _customers.AddAsync(c, ct);
