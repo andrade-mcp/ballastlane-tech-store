@@ -325,102 +325,60 @@ visitors. Theme tokens are CSS custom properties on `:root` / `.dark` — see
 
 ## GenAI usage
 
-Required by the brief; also how the project was developed. Claude Code was the assistant.
-The discipline matters more than any single prompt:
+Required by the brief; also how the project was actually written. Claude Code in the
+editor. I use it for boilerplate, test enumeration, framework-syntax recall (tw classes,
+npgsql binding, mermaid grammar), refactors when I can spell the constraint out, and
+pasting stack traces back at it for triage. Auth, concurrency, schema — I write those
+by hand. The model is wrong often enough at that level that pasting costs more than
+typing.
 
-**Where it was applied** — boilerplate, test enumeration, framework-syntax recall
-(Tailwind class strings, `NpgsqlParameter` binding, mermaid grammar), one-off refactors
-under explicit constraints, and error triage with stack traces pasted verbatim.
+A few prompts from this build, more or less verbatim:
 
-**Where it was not** — JWT issuance (claim shape, audience, clock skew, signing-key
-bytes), the optimistic-concurrency model on `Order.Confirm`, schema design, anything
-near a security boundary. Hand-written, then code-reviewed before merge — independent of
-whether AI could have produced "something that compiles."
+> tests for this. xunit fluentassertions. cover the cant-do paths — cant add after
+> Confirmed, Confirm with no lines throws, Confirm reprices from a dict of current
+> prices, Cancel from Fulfilled throws, Cancel idempotent. one file no class fixtures.
 
-### Five representative interactions
+Got most of it back. Tests asserted on `order.Status` after `Confirm()` but missed the
+`StockDecrement` list it returns — that's the load-bearing bit. Added the per-line
+assertion.
 
-Each was typed with the relevant file already in scope. Prompts are quoted as written —
-no editorialising.
+> npgsql parameterised update. decrement products.stock_on_hand by $qty only if
+> row_version=$x AND stock>=$qty. bump row_version. return rows affected. no dapper.
 
-**1. Test enumeration against an existing entity** (`Order.cs` open in the editor)
+OK. Wrapped it in a tx with the order header + items replace, behind
+`IOrderConfirmationUnitOfWork` so the application layer stays mockable.
 
-> tests for this. xUnit + FluentAssertions. cover: cant add items after Confirmed,
-> Confirm with no lines throws, Confirm reprices each line from a
-> `Dictionary<Guid,decimal>`, Cancel from Fulfilled throws, Cancel idempotent. one file,
-> no IClassFixture, no setup ceremony. use
-> `FluentActions.Invoking(...).Should().Throw<DomainException>()`.
+> tw v3 button. 2px orange gradient ring fd450b→fd7f0b, dark inner that wipes right on
+> hover (transition-[width] group-hover:w-0), white text on top. like the ballastlane
+> site. no shadcn.
 
-Got back ~80% of the file. The cases that should have asserted on the returned
-`IReadOnlyList<StockDecrement>` from `Confirm()` only checked `order.Status` — silently
-dropped the load-bearing output. Caught on review; added the per-line assertion before
-merging.
+First version used `bg-background` for the inner fill — white text vanished in light
+mode until hover. Pinned the dark to `#0b0b0b`, switched text to
+`text-[#fd450b] dark:text-white group-hover:text-white`. Two iterations.
 
-**2. Tailwind class-string lookup for the brand CTA**
+> tiny pg migration runner. embedded .sql under a prefix, lex order, idempotent
+> __migrations ledger, NpgsqlDataSource. ~80 lines.
 
-> tw v3 button. 2px gradient ring orange `#fd450b → #fd7f0b`, inner dark fill that wipes
-> right on hover via `transition-[width] group-hover:w-0`, white text overlaid. theme
-> aware: light = white fill / orange text, dark = near-black fill / white text. both go
-> white-on-orange when the fill wipes. ~20 lines jsx, no shadcn.
-
-First pass used `bg-background` for the inner fill — a CSS-variable token that resolves
-to near-white in light mode, so the overlaid white text was invisible until hover. Pinned
-the dark fill to `#0b0b0b` and switched the text to
-`text-[#fd450b] dark:text-white group-hover:text-white` so both idle states have
-contrast. Two iterations total.
-
-**3. Refactor under explicit constraint** (after the SQL was working at the repo level)
-
-> the OrderService loops `_products.TryDecrementStockAsync` then writes the order header.
-> that needs to be one tx. extract behind `IOrderConfirmationUnitOfWork` in Application;
-> impl in Infrastructure opens the connection, runs decrements + header update + items
-> replace inside a single tx. throw OutOfStockException when the conditional update
-> affects 0 rows. don't change the public OrderService surface.
-
-Two changes on review: (a) the impl was missing the `stock_on_hand` re-read in the
-failure branch — `OutOfStockException.Available` would have always been 0 — and
-(b) it forgot to `row_version + 1` on a successful decrement, which would have broken
-the next concurrent confirm. Both fixed before commit.
-
-**4. Error triage with the trace pasted verbatim**
+Lifted it behind `IMigrationRunner` so the test factory can no-op it via
+`WebApplicationFactory.ConfigureTestServices`. Otherwise kept.
 
 > ```
-> System.IO.IOException: Failed to bind to address http://127.0.0.1:5101: address already
-> in use.
+> System.IO.IOException: Failed to bind to address http://127.0.0.1:5101: address already in use.
 >    at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder...
 > ```
-> windows 11. one-liner to find and kill whatever owns the port?
+> windows. one-liner to kill it.
 
-Came back with the `Get-NetTCPConnection -LocalPort 5101 -State Listen | … |
-Stop-Process -Force` chain. Faster than recalling the cmdlet from memory; reused half a
-dozen times during the dev loop.
+Got the `Get-NetTCPConnection -LocalPort … | Stop-Process -Force` chain. Used it half a
+dozen times during the dev loop. Faster than recalling the cmdlet from memory.
 
-**5. Migration runner skeleton** (didn't want to look up `GetManifestResourceNames` ergonomics)
+### What I don't do
 
-> tiny postgres migration runner. enumerate embedded .sql resources under a prefix, apply
-> pending ones in lex order inside a tx, track filenames in `__migrations`. NpgsqlDataSource.
-> ~80 lines, no deps. ledger creation must be idempotent — `create table if not exists`
-> the runner runs first, no separate bootstrap.
-
-Kept most of it. Two follow-ups: lifted to `IMigrationRunner` so the integration-test
-factory can substitute a no-op via `WebApplicationFactory.ConfigureTestServices`, and
-moved the resource enumeration to use `StringComparer.Ordinal` so case-folded filesystems
-don't reorder migrations.
-
-### Anti-patterns avoided
-
-- **One-shot scaffolds.** No "build me a CRM" / "generate the whole solution" prompt
-  exists in the history. Every interaction above came after the relevant file or
-  constraint was already in context — preserves design coherence and keeps the diff
-  reviewable.
-- **"Fix it" follow-ups.** Re-prompts always include the verbatim compiler/runtime error.
-  Models infer far better from `error CS0246: type 'X' not found` than from "didn't work."
-- **Trusting first-pass tests.** AI-generated tests passing on the first run is a yellow
-  flag, not a green one — they often assert on properties that don't exist or mix
-  NSubstitute syntax with Moq idioms. Re-read every test before merging.
-- **Letting the model own the architecture.** The two-API split, the `row_version`
-  concurrency design, the `IOrderConfirmationUnitOfWork` port, the
-  Domain → Application → Infrastructure → Api test ordering, and the brand-default dark
-  theme came out of the planning pass before any prompt was issued.
+One-shot scaffolds. "Fix it" replies — I paste the actual compiler error. Trust tests
+that pass first time (re-read them; they often assert on properties that don't exist or
+mix NSubstitute syntax with Moq idioms). Let the model own architecture — the two-API
+split, the `row_version` concurrency design, the `IOrderConfirmationUnitOfWork` port,
+the Domain → Application → Infrastructure → Api test ordering, and the brand-default
+dark theme came out of the planning pass before any prompt was issued.
 
 ---
 
