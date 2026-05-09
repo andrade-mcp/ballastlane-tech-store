@@ -46,3 +46,7 @@ dist/
 
 # the interview pdfs aren't ours to redistribute
 *.pdf
+
+# personal interview cheat-sheets — never ship these
+docs/PLAN.md
+docs/INTERVIEW.md
