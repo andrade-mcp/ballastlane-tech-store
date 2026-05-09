@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { BrandButton } from "@/components/BrandButton";
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -22,8 +23,13 @@ export function RegisterPage() {
   return (
     <div className="grid min-h-screen place-items-center p-4">
       <div className="card w-full max-w-md p-6">
-        <h1 className="text-xl font-semibold">Create an account</h1>
-        <p className="mb-6 text-sm text-muted-foreground">BallastlaneTechStore</p>
+        <div className="mb-6 flex items-center gap-3">
+          <img src="/logo.png" alt="Ballastlane" className="h-12 w-auto" />
+          <div className="leading-tight">
+            <h1 className="text-xl font-semibold">Create an account</h1>
+            <p className="text-sm text-muted-foreground">BallastlaneTechStore</p>
+          </div>
+        </div>
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="label">Display name</label>
@@ -39,7 +45,9 @@ export function RegisterPage() {
             <p className="mt-1 text-xs text-muted-foreground">Min 8 characters.</p>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <button className="btn-primary w-full" disabled={loading}>{loading ? "Creating…" : "Create account"}</button>
+          <BrandButton type="submit" disabled={loading} className="w-full">
+            {loading ? "Creating…" : "Create account"}
+          </BrandButton>
         </form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Already have an account? <Link className="underline" to="/login">Sign in</Link>

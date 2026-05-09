@@ -83,8 +83,8 @@
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
-  .btn-primary { @apply btn bg-primary text-primary-foreground hover:brightness-110; }
-  /* Brand uses outline/ghost CTAs more than solid pills. */
+  /* Primary CTA lives in <BrandButton/> — orange gradient ring with wipe-on-hover. */
+  /* Brand uses outline/ghost for everything else. */
   .btn-outline { @apply btn border border-border bg-transparent hover:border-primary hover:text-primary; }
   .btn-ghost { @apply btn text-foreground hover:bg-accent hover:text-accent-foreground; }
   .btn-destructive { @apply btn bg-transparent text-destructive hover:bg-destructive/10; }

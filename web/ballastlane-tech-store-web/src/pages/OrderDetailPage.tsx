@@ -9,6 +9,7 @@ import {
 } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { OrderStatusBadge } from "@/components/Badges";
+import { BrandButton } from "@/components/BrandButton";
 
 interface RawOrder extends Omit<OrderDto, "status"> { status: number }
 interface RawProduct extends Omit<ProductDto, "category"> { category: number }
@@ -87,13 +88,13 @@ export function OrderDetailPage() {
           <OrderStatusBadge status={o.status} />
           {o.status === "Draft" && (
             <>
-              <button className="btn-primary" onClick={() => { setError(null); changeStatus.mutate("Confirmed"); }}>Confirm</button>
+              <BrandButton onClick={() => { setError(null); changeStatus.mutate("Confirmed"); }}>Confirm</BrandButton>
               <button className="btn-outline" onClick={() => changeStatus.mutate("Cancelled")}>Cancel</button>
             </>
           )}
           {o.status === "Confirmed" && (
             <>
-              <button className="btn-primary" onClick={() => changeStatus.mutate("Fulfilled")}>Fulfill</button>
+              <BrandButton onClick={() => changeStatus.mutate("Fulfilled")}>Fulfill</BrandButton>
               <button className="btn-outline" onClick={() => changeStatus.mutate("Cancelled")}>Cancel</button>
             </>
           )}
@@ -189,7 +190,7 @@ function AddItemForm({ products, onAdd, submitting }:
         <label className="label">Qty</label>
         <input className="input" type="number" min={1} {...register("quantity", { valueAsNumber: true, required: true, min: 1 })} />
       </div>
-      <button className="btn-primary" disabled={submitting}>{submitting ? "Adding…" : "Add line"}</button>
+      <BrandButton type="submit" disabled={submitting}>{submitting ? "Adding…" : "Add line"}</BrandButton>
     </form>
   );
 }

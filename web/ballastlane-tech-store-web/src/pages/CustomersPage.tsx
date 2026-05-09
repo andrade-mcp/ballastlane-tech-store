@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/format";
 import { CustomerStatusBadge } from "@/components/Badges";
 import { Modal } from "@/components/Modal";
 import { StatusPicker } from "@/components/StatusPicker";
+import { BrandButton } from "@/components/BrandButton";
 
 // Forward-only lifecycle: anything → Churned, otherwise only later statuses.
 function nextStatusesFor(current: CustomerStatus): CustomerStatus[] {
@@ -61,7 +62,7 @@ export function CustomersPage() {
           <h1 className="text-2xl font-semibold">Customers</h1>
           <p className="text-sm text-muted-foreground">Leads, prospects, and active accounts.</p>
         </div>
-        <button className="btn-primary" onClick={() => setCreating(true)}>New customer</button>
+        <BrandButton onClick={() => setCreating(true)}>New customer</BrandButton>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -135,9 +136,9 @@ function CustomerFormModal({ open, title, defaults, onClose, onSubmit, submittin
            footer={
              <>
                <button className="btn-ghost" onClick={() => { reset(); onClose(); }}>Cancel</button>
-               <button className="btn-primary" disabled={submitting} onClick={handleSubmit(onSubmit)}>
+               <BrandButton type="button" disabled={submitting} onClick={handleSubmit(onSubmit)}>
                  {submitting ? "Saving…" : "Save"}
-               </button>
+               </BrandButton>
              </>
            }>
       <div><label className="label">Company</label><input className="input" {...register("company", { required: true })} /></div>

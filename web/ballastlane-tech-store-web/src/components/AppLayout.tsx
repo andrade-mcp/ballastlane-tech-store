@@ -14,7 +14,7 @@ export function AppLayout() {
     <div className="grid min-h-screen grid-cols-1 md:grid-cols-[240px_1fr]">
       <aside className="border-b border-sidebar-border bg-sidebar text-sidebar-foreground p-5 md:border-b-0 md:border-r">
         <div className="mb-8 flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-md bg-primary font-bold text-primary-foreground">B</div>
+          <img src="/logo.png" alt="Ballastlane" className="h-9 w-auto" />
           <div className="leading-tight">
             <div className="font-semibold">Ballastlane</div>
             <div className="text-xs text-muted-foreground">TechStore</div>

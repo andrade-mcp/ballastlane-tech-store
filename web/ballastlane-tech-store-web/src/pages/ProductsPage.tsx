@@ -8,6 +8,7 @@ import {
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 import { Modal } from "@/components/Modal";
+import { BrandButton } from "@/components/BrandButton";
 
 interface ProductForm {
   sku: string; name: string; category: ProductCategory; brand: string; price: number; stockOnHand: number;
@@ -55,7 +56,7 @@ export function ProductsPage() {
           <h1 className="text-2xl font-semibold">Products</h1>
           <p className="text-sm text-muted-foreground">Catalog with live stock counts.</p>
         </div>
-        <button className="btn-primary" onClick={() => setCreating(true)}>New product</button>
+        <BrandButton onClick={() => setCreating(true)}>New product</BrandButton>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -128,9 +129,9 @@ function ProductFormModal({ open, title, defaults, onClose, onSubmit, submitting
            footer={
              <>
                <button className="btn-ghost" onClick={() => { reset(); onClose(); }}>Cancel</button>
-               <button className="btn-primary" disabled={submitting} onClick={handleSubmit(onSubmit)}>
+               <BrandButton type="button" disabled={submitting} onClick={handleSubmit(onSubmit)}>
                  {submitting ? "Saving…" : "Save"}
-               </button>
+               </BrandButton>
              </>
            }>
       <div className="grid grid-cols-2 gap-4">

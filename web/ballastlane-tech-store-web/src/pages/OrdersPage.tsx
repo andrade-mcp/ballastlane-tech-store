@@ -10,6 +10,7 @@ import {
 import { formatCurrency, formatDate } from "@/lib/format";
 import { OrderStatusBadge } from "@/components/Badges";
 import { Modal } from "@/components/Modal";
+import { BrandButton } from "@/components/BrandButton";
 
 interface RawSummary extends Omit<OrderSummaryDto, "status"> { status: number }
 interface RawCustomer extends Omit<CustomerDto, "status"> { status: number }
@@ -49,7 +50,7 @@ export function OrdersPage() {
           <h1 className="text-2xl font-semibold">Orders</h1>
           <p className="text-sm text-muted-foreground">The sales pipeline.</p>
         </div>
-        <button className="btn-primary" onClick={() => setCreating(true)}>New order</button>
+        <BrandButton onClick={() => setCreating(true)}>New order</BrandButton>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -110,10 +111,10 @@ function NewOrderModal({ open, customers, onClose, onSubmit, submitting }:
            footer={
              <>
                <button className="btn-ghost" onClick={() => { reset(); onClose(); }}>Cancel</button>
-               <button className="btn-primary" disabled={submitting}
+               <BrandButton type="button" disabled={submitting}
                        onClick={handleSubmit((d) => onSubmit(d.customerId))}>
                  {submitting ? "Creating…" : "Create"}
-               </button>
+               </BrandButton>
              </>
            }>
       <div>
