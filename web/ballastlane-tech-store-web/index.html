@@ -11,11 +11,13 @@
       rel="stylesheet"
     />
     <script>
-      // Apply theme before paint to avoid a flash. Default is dark (brand-first);
-      // user can override per-session via the avatar menu.
+      // Apply theme before paint to avoid a flash. Brand default is dark; only an
+      // explicit "light" preference (set by the user via the avatar menu) opts out.
+      // Key is "blc.theme" — the old "theme" key was eagerly written during the
+      // light-default era and would otherwise pin returning visitors to light.
       (function () {
         try {
-          if (localStorage.getItem("theme") !== "light") document.documentElement.classList.add("dark");
+          if (localStorage.getItem("blc.theme") !== "light") document.documentElement.classList.add("dark");
         } catch (_) { document.documentElement.classList.add("dark"); }
       })();
     </script>
