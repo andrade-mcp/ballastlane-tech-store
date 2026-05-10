@@ -1,4 +1,7 @@
-# Tech Store
+<h1>
+  <img src="web/ballastlane-tech-store-web/public/logo.png" alt="Ballastlane" height="40" align="left" />
+  &nbsp;Tech Store
+</h1>
 
 A small ERP for a computer-parts store: customers, a product catalog (CPUs, GPUs, RAM,
 SSDs, motherboards, PSUs, cases, coolers) and **orders with line items that decrement

@@ -1,0 +1,26 @@
+# Add these ingress rules to the existing /home/ubuntu/.cloudflared/config.yml on
+# the VM, OR create a separate tunnel for tech-store. The existing
+# linkedin-monitor tunnel can host all three hostnames — just merge the rules
+# above the catch-all `service: http_status:404` entry.
+#
+# After editing config.yml, restart the tunnel:
+#   sudo systemctl restart cloudflared-tunnel
+#
+# DNS records — point each hostname at the tunnel via (only works once the
+# ballastlane-tech.store zone exists in the same Cloudflare account that owns
+# the tunnel):
+#   cloudflared tunnel route dns <tunnel-name> ballastlane-tech.store
+#   cloudflared tunnel route dns <tunnel-name> auth.ballastlane-tech.store
+#   cloudflared tunnel route dns <tunnel-name> api.ballastlane-tech.store
+
+ingress:
+  - hostname: ballastlane-tech.store
+    service: http://localhost:5174
+  - hostname: auth.ballastlane-tech.store
+    service: http://localhost:5101
+  - hostname: api.ballastlane-tech.store
+    service: http://localhost:5102
+  # ... existing linkedin-monitor rules continue here ...
+  # - hostname: api.oci-cdn.online
+  #   service: http://localhost:8000
+  - service: http_status:404

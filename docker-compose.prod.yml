@@ -1,0 +1,48 @@
+# Production overlay for the Oracle VM.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Differences vs docker-compose.yml:
+# - All host ports bind to 127.0.0.1 — only the locally-running Cloudflare Tunnel
+#   reaches them. Nothing is publicly exposed by Docker.
+# - Postgres has no published port at all; reachable only via the compose network.
+# - Adds the `web` service: nginx-served React bundle. Vite resolves API URLs at
+#   build time, so they are passed as build args.
+# - Restart policy: unless-stopped. Survives VM reboots.
+# - JWT signing key + public origins must be supplied via .env on the VM.
+
+services:
+  postgres:
+    ports: !reset []
+    restart: unless-stopped
+
+  auth-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}"
+      Cors__AllowedOrigins__0: "${PUBLIC_WEB_ORIGIN:?PUBLIC_WEB_ORIGIN is required}"
+    ports:
+      - "127.0.0.1:5101:8080"
+    restart: unless-stopped
+
+  store-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}"
+      Cors__AllowedOrigins__0: "${PUBLIC_WEB_ORIGIN:?PUBLIC_WEB_ORIGIN is required}"
+    ports:
+      - "127.0.0.1:5102:8080"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web/ballastlane-tech-store-web
+      args:
+        VITE_AUTH_API: "${PUBLIC_AUTH_API_ORIGIN:?PUBLIC_AUTH_API_ORIGIN is required}"
+        VITE_STORE_API: "${PUBLIC_STORE_API_ORIGIN:?PUBLIC_STORE_API_ORIGIN is required}"
+    container_name: ballastlanetechstore-web
+    ports:
+      - "127.0.0.1:5174:80"
+    restart: unless-stopped
+    depends_on:
+      - auth-api
+      - store-api
