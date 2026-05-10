@@ -3,6 +3,9 @@
 Production runbook for deploying tech-store to the Oracle ARM VM. Designed to
 co-tenant cleanly with the existing `linkedin-monitor` service on the same VM.
 
+**Currently deployed at:** <https://ballastlane-tech.store>
+(`auth.ballastlane-tech.store`, `api.ballastlane-tech.store`)
+
 ## Target
 
 | Field | Value |
@@ -48,26 +51,32 @@ On your laptop:
 
 ### 0. Move `ballastlane-tech.store` to Cloudflare DNS
 
-The tunnel can only route hostnames in zones owned by the same Cloudflare account.
-The domain is currently at the registrar — bring it under Cloudflare first.
+The tunnel can only route hostnames in zones owned by the same Cloudflare account
+that owns the tunnel cert. The domain ships from Namecheap.
 
 1. Cloudflare dashboard → **Add a site** → enter `ballastlane-tech.store` → choose
-   the **Free** plan.
-2. Cloudflare scans existing DNS records (likely empty for a new domain) — accept
-   them.
-3. Cloudflare shows two **assigned nameservers** (e.g. `kate.ns.cloudflare.com`,
-   `walt.ns.cloudflare.com`).
-4. At the registrar (where `ballastlane-tech.store` was bought), replace the
-   existing nameservers with the two Cloudflare ones.
-5. Propagation: usually < 15 minutes for a new domain. Check with:
+   the **Free** plan. (Or use the API token — see "Bootstrap from scratch" at the
+   end of this file.)
+2. Cloudflare assigns two nameservers per zone — for this domain they were
+   `keenan.ns.cloudflare.com` and `melina.ns.cloudflare.com`. **The names are
+   per-zone**, so don't copy these blindly into another deploy; use whatever
+   Cloudflare assigns when you add the site.
+3. Namecheap dashboard → **Domain List** → **Manage** → **Nameservers** → switch
+   to **Custom DNS** → paste the two assigned names → save.
+4. Propagation usually completes in 5–30 minutes. Verify with:
    ```bash
-   dig +short NS ballastlane-tech.store
+   curl -sH 'Accept: application/dns-json' \
+     'https://cloudflare-dns.com/dns-query?name=ballastlane-tech.store&type=NS'
    ```
-   Should return the two `*.ns.cloudflare.com` names.
-6. In the Cloudflare zone settings, set **SSL/TLS → Overview → Full** (not
-   Flexible). The tunnel handles the back-half of TLS internally.
+   When `Status: 0` and the `Answer` block lists the two assigned names, you're
+   propagated.
+5. SSL/TLS mode defaults to `Full` for new zones via the API, which is what we
+   want — Cloudflare terminates TLS at the edge and talks plain HTTP through the
+   tunnel to the origin.
 
-Once the zone shows **Active** in Cloudflare, continue.
+Once the zone shows **Active**, the universal SSL certificate provisions
+automatically (1–15 min). `https://<host>` returns SSL handshake errors until
+the cert lands.
 
 ### 1. SSH to the VM
 
@@ -179,11 +188,13 @@ After pushing to `main`:
 
 ```bash
 ssh -i ssh-key-2026-04-03.key ubuntu@168.138.155.229 \
-  'bash /home/ubuntu/ballastlane-tech-store/deploy/deploy.sh'
+  'sudo -E bash /home/ubuntu/ballastlane-tech-store/deploy/deploy.sh'
 ```
 
 `deploy.sh` is idempotent — runs `git reset --hard origin/main`, rebuilds, and
-restarts. ~60 s end-to-end on this VM.
+restarts. ~60 s end-to-end on this VM. The `sudo -E` preserves the env vars
+loaded from `.env` (otherwise the prod compose `${JWT_SIGNING_KEY:?…}` guards
+fire under sudo's clean environment).
 
 ## Rollback
 
@@ -209,14 +220,33 @@ bash deploy/deploy.sh
 ## Troubleshooting
 
 - **`bootstrap.sh` fails on `git clone` (Authentication failed)** — repo is
-  private. Use the SSH deploy-key fallback in step 2.
+  private. Either flip the repo to public (`gh repo edit … --visibility public`)
+  or use the SSH deploy-key fallback in step 2.
+- **`apt` is locked by `apt.systemd.daily`** — periodic Ubuntu timer can wedge.
+  Stop both timers, kill the stuck `apt-get`, then retry the script:
+  ```bash
+  sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer
+  sudo pkill -9 -f apt-get
+  ```
+- **`deploy.sh` fails with `failed to bind host port 127.0.0.1:5101`** — the
+  prod compose overlay needs `ports: !override` to replace the base port list,
+  not merge with it. Already applied; if you see this on a future change, check
+  the merged config with `docker compose -f … config | grep ports -A4`.
 - **`deploy.sh` health-check times out on `:5174`** — check
   `docker compose logs web`. Most common: build args were missing, so the bundle
   baked in `http://localhost:5101` and CORS rejects it from the public origin.
   Re-export the `.env` and rebuild with `--no-cache`.
+- **One API crashes on cold start with `pg_type_typname_nsp_index` duplicate
+  key** — fixed in `MigrationRunner.cs` via a Postgres advisory lock that
+  serialises the two API processes' migration runs. If it recurs, confirm the
+  advisory lock is still in place.
 - **Cloudflare hostname returns 502** — tunnel ingress is pointing at a port no
   container is bound to. Confirm `ss -tlnp | grep 127.0.0.1` shows 5101, 5102,
-  5174.
+  5174. Check `journalctl -u cloudflared-tunnel --no-pager -n 30 | grep -iE
+  '502|error'` for the exact upstream error.
+- **`https://<host>` returns SSL handshake errors right after zone activation**
+  — Cloudflare's universal SSL cert hasn't been issued yet. Takes 1–15 min after
+  the zone goes Active. Just wait; nothing on our side to fix.
 - **JWT 401s after deploy** — `JWT_SIGNING_KEY` changed between deploys.
   Existing demo tokens in browser localStorage are invalidated. Sign in again.
 

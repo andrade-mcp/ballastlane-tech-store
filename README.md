@@ -1,14 +1,45 @@
 <h1>
   <img src="web/ballastlane-tech-store-web/public/logo.png" alt="Ballastlane" height="40" align="left" />
-  &nbsp;Tech Store
+  &nbsp;Ballastlane Tech Store
 </h1>
 
-A small ERP for a computer-parts store: customers, a product catalog (CPUs, GPUs, RAM,
-SSDs, motherboards, PSUs, cases, coolers) and **orders with line items that decrement
-stock on confirm**.
+![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?style=flat-square&logo=dotnet&logoColor=white)
+![C#](https://img.shields.io/badge/C%23-13-239120?style=flat-square&logo=csharp&logoColor=white)
+![ASP.NET Core](https://img.shields.io/badge/ASP.NET_Core-Web_API-512BD4?style=flat-square&logo=dotnet&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
 
-Built as a submission for the Ballastlane .NET technical interview.
+A small ERP for a computer-parts store - customers, a product catalog (CPUs, GPUs,
+RAM, SSDs, motherboards, PSUs, cases, coolers), and **orders with line items that
+decrement stock on confirm**.
 
+Built end-to-end for the Ballastlane .NET technical interview: two ASP.NET Core
+Web APIs over a shared Clean Architecture core (Domain - Application -
+Infrastructure), a React 18 + Vite frontend, ~60 tests across four suites (Domain,
+Application, Infrastructure, API integration), and a single `docker compose up`
+that brings everything online with seeded demo data and credentials.
+Full brief: [`docs/test.md`](docs/test.md) (original PDF at
+[`docs/test.pdf`](docs/test.pdf)).
+
+The brief's constraints are architectural, not domain-driven: Clean Architecture
+with strict layer separation, TDD across every layer, two Web APIs (one for CRUD
+on the domain, a second for user registration / login with authorized and
+anonymous endpoints), a data layer with **no EF, Dapper, or MediatR**, an
+independent business-logic layer, unit tests across every component, and a
+responsive frontend over seeded data.
+
+A parts-store domain was a deliberate pick. Order confirmation gives the business
+layer a real invariant to defend - snapshot the line price, decrement stock,
+resolve write contention via optimistic concurrency on `row_version` - so the
+layered architecture earns its keep instead of degenerating into pass-through CRUD.
+The catalog has enough variety (eight categories, real SKUs) to make the
+frontend's table + filter + modal flows meaningful rather than placeholder.
+
+**Live demo:** <https://ballastlane-tech.store> · sign in with `demo@ballastlane.dev` / `Demo!2026`
 **Repository:** <https://github.com/andrade-mcp/ballastlane-tech-store>
 
 ---
@@ -19,7 +50,7 @@ Built as a submission for the Ballastlane .NET technical interview.
 - [Architecture](#architecture)
 - [Domain model](#domain-model)
 - [Tech stack](#tech-stack)
-- [Getting started](#getting-started)
+- [Get started](#get-started)
 - [Project structure](#project-structure)
 - [Testing](#testing)
 - [Engineering notes](#engineering-notes)
@@ -32,11 +63,11 @@ Built as a submission for the Ballastlane .NET technical interview.
 ## Highlights
 
 - Two ASP.NET Core Web APIs (Auth + Store) sharing one Application + Infrastructure layer.
-- Clean Architecture with strict dependency direction — Domain knows nothing of frameworks.
+- Clean Architecture with strict dependency direction - Domain knows nothing of frameworks.
 - **No ORM.** Hand-written SQL via `Npgsql`. **No MediatR.** Plain service classes.
 - Embedded SQL migrations applied automatically on startup with an idempotent ledger.
 - Optimistic concurrency on stock decrement at order confirmation (per-row `row_version`).
-- ~60 tests across four suites — Domain, Application, Infrastructure, API integration.
+- ~60 tests across four suites - Domain, Application, Infrastructure, API integration.
 - React 18 + Vite + Tailwind frontend with light/dark theming and a brand CTA component.
 
 ---
@@ -45,39 +76,22 @@ Built as a submission for the Ballastlane .NET technical interview.
 
 ```mermaid
 flowchart TB
-    subgraph Client["Client"]
-        UI["React 18 + Vite<br/>Tailwind v3 + react-query"]
-    end
-
-    subgraph Backend["Backend — .NET 9"]
-        direction TB
-        AuthApi["Auth.Api<br/>:5101<br/>register / login / me"]
-        StoreApi["Store.Api<br/>:5102<br/>customers · products · orders"]
-
-        subgraph Shared["Shared assemblies"]
-            App["Application<br/>use cases · ports · DTOs"]
-            Inf["Infrastructure<br/>Npgsql repos · JWT · BCrypt · migrations"]
-            Dom["Domain<br/>entities · enums · invariants"]
-        end
-    end
-
+    UI["React 18 + Vite"]
+    AuthApi["Auth.Api :5101"]
+    StoreApi["Store.Api :5102"]
+    Core["Application + Domain + Infrastructure"]
     DB[("PostgreSQL 16")]
 
-    UI -->|JWT bearer| AuthApi
-    UI -->|JWT bearer| StoreApi
-    AuthApi --> App
-    StoreApi --> App
-    App --> Dom
-    Inf --> App
-    Inf --> Dom
-    AuthApi --> Inf
-    StoreApi --> Inf
-    Inf --> DB
+    UI -->|JWT| AuthApi
+    UI -->|JWT| StoreApi
+    AuthApi --> Core
+    StoreApi --> Core
+    Core --> DB
 ```
 
 Dependency rule is one-way: outer layers depend on inner. `Application` defines ports
 (`IOrderRepository`, `IPasswordHasher`, etc.) and `Infrastructure` implements them.
-Both APIs are composition roots — controllers stay thin and delegate to application
+Both APIs are composition roots - controllers stay thin and delegate to application
 services.
 
 The two-API split is a literal reading of the brief, which asks for "a second API" for
@@ -132,19 +146,6 @@ erDiagram
     }
 ```
 
-### Order state machine
-
-```mermaid
-stateDiagram-v2
-    [*] --> Draft
-    Draft --> Confirmed : Confirm() — snapshot prices, decrement stock
-    Draft --> Cancelled : Cancel()
-    Confirmed --> Fulfilled : Fulfill()
-    Confirmed --> Cancelled : Cancel()
-    Fulfilled --> [*]
-    Cancelled --> [*]
-```
-
 `Order.Confirm()` is the load-bearing piece of the model:
 
 1. Refuses to confirm a draft with zero lines.
@@ -180,7 +181,12 @@ and
 
 ---
 
-## Getting started
+## Get started
+
+> [!NOTE]
+> Migrations and the demo seed run automatically on first API startup - no `dotnet ef`
+> step. Postgres is mapped to host port **5434** (not 5432) to avoid clashing with a
+> local install.
 
 ### Prerequisites
 
@@ -248,19 +254,57 @@ at `http://localhost:5101` / `http://localhost:5102`.
 
 ```
 src/
-  BallastlaneTechStore.Domain/         entities, enums, invariants — no deps
-  BallastlaneTechStore.Application/    use cases, DTOs, ports (interfaces)
-  BallastlaneTechStore.Infrastructure/ Npgsql repos, JWT, BCrypt, embedded SQL migrations
-  BallastlaneTechStore.Auth.Api/       ASP.NET Core Web API — auth surface          (:5101)
-  BallastlaneTechStore.Store.Api/      ASP.NET Core Web API — crud + orders         (:5102)
+├── BallastlaneTechStore.Domain/
+│   ├── Common/             DomainException.cs
+│   ├── Entities/           User.cs, Customer.cs, Product.cs, Order.cs, OrderItem.cs
+│   └── Enums/              Enums.cs (Role, CustomerStatus, ProductCategory, OrderStatus)
+├── BallastlaneTechStore.Application/
+│   ├── Abstractions/       IClock, IPasswordHasher, IJwtTokenIssuer, Repositories.cs
+│   ├── Common/             Exceptions.cs (NotFound, Conflict, OutOfStock, ...)
+│   ├── Dtos/               request/response DTOs
+│   ├── Mapping/            Maps.cs (entity ↔ DTO)
+│   ├── Services/           AuthService, CustomerService, ProductService, OrderService
+│   └── DependencyInjection.cs
+├── BallastlaneTechStore.Infrastructure/
+│   ├── Auth/               BcryptPasswordHasher.cs, JwtTokenIssuer.cs, JwtSettings.cs
+│   ├── Common/             SystemClock.cs
+│   ├── Persistence/
+│   │   ├── Migrations/     0001_init.sql (embedded resources)
+│   │   ├── Repositories/   {User,Customer,Product,Order}Repository.cs + OrderConfirmationUnitOfWork
+│   │   ├── MigrationRunner.cs
+│   │   └── Seeder.cs       demo customers - products - orders
+│   ├── Web/                JwtAuthExtensions.cs, ExceptionMiddleware.cs
+│   └── DependencyInjection.cs
+├── BallastlaneTechStore.Auth.Api/             :5101
+│   ├── Controllers/        AuthController.cs (register / login / me)
+│   └── Program.cs
+└── BallastlaneTechStore.Store.Api/            :5102
+    ├── Common/             CurrentUser.cs (JWT claim helper)
+    ├── Controllers/        CustomersController, ProductsController, OrdersController
+    └── Program.cs
+
 tests/
-  BallastlaneTechStore.Domain.Tests/         invariants — order state machine, etc.
-  BallastlaneTechStore.Application.Tests/    services with in-memory repo fakes
-  BallastlaneTechStore.Infrastructure.Tests/ BCrypt + JWT issuer
-  BallastlaneTechStore.Api.Tests/            WebApplicationFactory, both APIs
-web/
-  ballastlane-tech-store-web/  Vite + React + TypeScript + Tailwind
-docker-compose.yml             postgres + both APIs
+├── BallastlaneTechStore.Domain.Tests/         OrderTests, ProductTests, UserAndCustomerTests
+├── BallastlaneTechStore.Application.Tests/
+│   ├── TestSupport/        InMemoryRepos.cs
+│   └── *ServiceTests.cs    Auth, Order, Customer + Product
+├── BallastlaneTechStore.Infrastructure.Tests/ PasswordHasherAndJwtTests
+└── BallastlaneTechStore.Api.Tests/
+    ├── TestSupport/        TestApiFactory.cs, InMemoryStore.cs
+    └── *ApiTests.cs        AuthApi, StoreApi (WebApplicationFactory)
+
+web/ballastlane-tech-store-web/                Vite + React 18 + TS + Tailwind v3
+├── src/
+│   ├── components/         AppLayout, BrandButton, Modal, StatusPicker, UserMenu, Badges
+│   ├── features/
+│   │   ├── auth/           AuthProvider.tsx (token + /me)
+│   │   └── theme/          ThemeProvider.tsx (light/dark, localStorage)
+│   ├── lib/                api.ts (axios + bearer interceptor), types.ts, format.ts
+│   ├── pages/              Login, Register, Dashboard, Customers, Products, Orders, OrderDetail
+│   └── styles/globals.css  brand tokens on :root / .dark
+└── vite.config.ts
+
+docker-compose.yml                              postgres + auth-api + store-api
 ```
 
 ---
@@ -276,7 +320,7 @@ All suites are self-contained:
 - Domain + Application use hand-written in-memory fakes.
 - Infrastructure unit tests cover BCrypt and the JWT issuer.
 - API integration boots the full ASP.NET host with the in-memory repos via
-  `WebApplicationFactory` — no live PostgreSQL required.
+  `WebApplicationFactory` - no live PostgreSQL required.
 
 Total: ~60 tests, all green.
 
@@ -313,15 +357,15 @@ agnostic of the transaction mechanics.
 
 ### NuGet pinning
 
-- `Swashbuckle.AspNetCore` — pinned to **7.x**. The 10.x line rearranges the
+- `Swashbuckle.AspNetCore` - pinned to **7.x**. The 10.x line rearranges the
   `Microsoft.OpenApi` namespaces and silently breaks `AddSwaggerGen` config.
-- `Microsoft.Extensions.*` — pinned to **9.0.0** to match the .NET 9 runtime.
+- `Microsoft.Extensions.*` - pinned to **9.0.0** to match the .NET 9 runtime.
 
 ### Frontend theming
 
 Brand-default dark with an explicit light option. The choice persists in `localStorage`
 under a versioned key (`blc.theme`) so old eagerly-written values don't pin returning
-visitors. Theme tokens are CSS custom properties on `:root` / `.dark` — see
+visitors. Theme tokens are CSS custom properties on `:root` / `.dark` - see
 [`web/ballastlane-tech-store-web/src/styles/globals.css`](web/ballastlane-tech-store-web/src/styles/globals.css).
 
 ---
@@ -331,18 +375,18 @@ visitors. Theme tokens are CSS custom properties on `:root` / `.dark` — see
 Required by the brief; also how the project was actually written. Claude Code in the
 editor. I use it for boilerplate, test enumeration, framework-syntax recall (tw classes,
 npgsql binding, mermaid grammar), refactors when I can spell the constraint out, and
-pasting stack traces back at it for triage. Auth, concurrency, schema — I write those
+pasting stack traces back at it for triage. Auth, concurrency, schema - I write those
 by hand. The model is wrong often enough at that level that pasting costs more than
 typing.
 
 A few prompts from this build, more or less verbatim:
 
-> tests for this. xunit fluentassertions. cover the cant-do paths — cant add after
+> tests for this. xunit fluentassertions. cover the cant-do paths - cant add after
 > Confirmed, Confirm with no lines throws, Confirm reprices from a dict of current
 > prices, Cancel from Fulfilled throws, Cancel idempotent. one file no class fixtures.
 
 Got most of it back. Tests asserted on `order.Status` after `Confirm()` but missed the
-`StockDecrement` list it returns — that's the load-bearing bit. Added the per-line
+`StockDecrement` list it returns - that's the load-bearing bit. Added the per-line
 assertion.
 
 > npgsql parameterised update. decrement products.stock_on_hand by $qty only if
@@ -351,11 +395,11 @@ assertion.
 OK. Wrapped it in a tx with the order header + items replace, behind
 `IOrderConfirmationUnitOfWork` so the application layer stays mockable.
 
-> tw v3 button. 2px orange gradient ring fd450b→fd7f0b, dark inner that wipes right on
+> tw v3 button. 2px orange gradient ring fd450b-->fd7f0b, dark inner that wipes right on
 > hover (transition-[width] group-hover:w-0), white text on top. like the ballastlane
 > site. no shadcn.
 
-First version used `bg-background` for the inner fill — white text vanished in light
+First version used `bg-background` for the inner fill - white text vanished in light
 mode until hover. Pinned the dark to `#0b0b0b`, switched text to
 `text-[#fd450b] dark:text-white group-hover:text-white`. Two iterations.
 
@@ -376,11 +420,11 @@ dozen times during the dev loop. Faster than recalling the cmdlet from memory.
 
 ### What I don't do
 
-One-shot scaffolds. "Fix it" replies — I paste the actual compiler error. Trust tests
+One-shot scaffolds. "Fix it" replies - I paste the actual compiler error. Trust tests
 that pass first time (re-read them; they often assert on properties that don't exist or
-mix NSubstitute syntax with Moq idioms). Let the model own architecture — the two-API
+mix NSubstitute syntax with Moq idioms). Let the model own architecture - the two-API
 split, the `row_version` concurrency design, the `IOrderConfirmationUnitOfWork` port,
-the Domain → Application → Infrastructure → Api test ordering, and the brand-default
+the Domain --> Application --> Infrastructure --> Api test ordering, and the brand-default
 dark theme came out of the planning pass before any prompt was issued.
 
 ---
@@ -389,12 +433,12 @@ dark theme came out of the planning pass before any prompt was issued.
 
 Items considered, scoped out of the deliverable, and acknowledged as the next iteration:
 
-- **Stock-movement ledger** — `stock_movements (product_id, qty_delta, reason, order_id?, occurred_at)`
+- **Stock-movement ledger** - `stock_movements (product_id, qty_delta, reason, order_id?, occurred_at)`
   table to replace the single `stock_on_hand` column. Foundation for the next item.
-- **Refund / restock flow** — Cancelling a Confirmed order should release allocated
+- **Refund / restock flow** - Cancelling a Confirmed order should release allocated
   stock; left out because doing it correctly requires the ledger above.
-- **Refresh tokens** — login currently issues a single 8-hour JWT.
-- **Role-based authorisation** — `Role` is on the user model but not enforced; manager-only
+- **Refresh tokens** - login currently issues a single 8-hour JWT.
+- **Role-based authorisation** - `Role` is on the user model but not enforced; manager-only
   actions (delete, refund) would gate on it.
 - Soft delete + audit columns; multi-tenancy (`TenantId` slots in cleanly given the repo
   pattern).
@@ -402,7 +446,7 @@ Items considered, scoped out of the deliverable, and acknowledged as the next it
 - Redis cache for the catalog (job-spec bonus); rate limiting on `/api/auth/login`.
 - API versioning (`/api/v1/*` + `Asp.Versioning.Http`).
 - OpenTelemetry export to an OTLP collector.
-- CI/CD — GitHub Actions: build + test on push, container build on tag.
+- CI/CD - GitHub Actions: build + test on push, container build on tag.
 - Playwright E2E covering the golden path.
 
 ---
