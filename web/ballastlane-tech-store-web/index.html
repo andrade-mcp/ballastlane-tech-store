@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.ico" />
-    <title>BallastlaneTechStore</title>
+    <title>Ballastlane Tech Store</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -12,10 +12,6 @@
       rel="stylesheet"
     />
     <script>
-      // Apply theme before paint to avoid a flash. Brand default is dark; only an
-      // explicit "light" preference (set by the user via the avatar menu) opts out.
-      // Key is "blc.theme" — the old "theme" key was eagerly written during the
-      // light-default era and would otherwise pin returning visitors to light.
       (function () {
         try {
           if (localStorage.getItem("blc.theme") !== "light") document.documentElement.classList.add("dark");
