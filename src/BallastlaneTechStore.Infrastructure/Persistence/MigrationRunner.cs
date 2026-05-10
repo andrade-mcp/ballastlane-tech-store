@@ -19,23 +19,47 @@ public sealed class MigrationRunner : IMigrationRunner
 
     public MigrationRunner(NpgsqlDataSource ds, ILogger<MigrationRunner> log) { _ds = ds; _log = log; }
 
+    // Arbitrary 64-bit key — must be unique to this codebase. Any concurrent
+    // MigrationRunner sharing the same Postgres serializes here.
+    private const long AdvisoryLockKey = 7432894732894732L;
+
     public async Task RunAsync(CancellationToken ct)
     {
-        await EnsureLedgerAsync(ct);
-        var applied = await LoadAppliedAsync(ct);
-        var assembly = typeof(MigrationRunner).Assembly;
-        var pending = assembly.GetManifestResourceNames()
-            .Where(n => n.StartsWith(MigrationResourcePrefix, StringComparison.Ordinal) && n.EndsWith(".sql"))
-            .Select(n => (Resource: n, Name: n[MigrationResourcePrefix.Length..]))
-            .Where(x => !applied.Contains(x.Name))
-            .OrderBy(x => x.Name, StringComparer.Ordinal)
-            .ToList();
-
-        foreach (var (resource, name) in pending)
+        // Hold a Postgres advisory lock for the whole run. Without this, two API
+        // hosts cold-starting in parallel race on CREATE TABLE IF NOT EXISTS and
+        // one loses with a pg_type unique-constraint violation.
+        await using var lockConn = await _ds.OpenConnectionAsync(ct);
+        await using (var lockCmd = lockConn.CreateCommand())
         {
-            var sql = ReadEmbedded(assembly, resource);
-            await ApplyAsync(name, sql, ct);
-            _log.LogInformation("Applied migration {name}", name);
+            lockCmd.CommandText = "select pg_advisory_lock($1);";
+            lockCmd.Parameters.Add(new NpgsqlParameter { Value = AdvisoryLockKey });
+            await lockCmd.ExecuteNonQueryAsync(ct);
+        }
+        try
+        {
+            await EnsureLedgerAsync(ct);
+            var applied = await LoadAppliedAsync(ct);
+            var assembly = typeof(MigrationRunner).Assembly;
+            var pending = assembly.GetManifestResourceNames()
+                .Where(n => n.StartsWith(MigrationResourcePrefix, StringComparison.Ordinal) && n.EndsWith(".sql"))
+                .Select(n => (Resource: n, Name: n[MigrationResourcePrefix.Length..]))
+                .Where(x => !applied.Contains(x.Name))
+                .OrderBy(x => x.Name, StringComparer.Ordinal)
+                .ToList();
+
+            foreach (var (resource, name) in pending)
+            {
+                var sql = ReadEmbedded(assembly, resource);
+                await ApplyAsync(name, sql, ct);
+                _log.LogInformation("Applied migration {name}", name);
+            }
+        }
+        finally
+        {
+            await using var unlockCmd = lockConn.CreateCommand();
+            unlockCmd.CommandText = "select pg_advisory_unlock($1);";
+            unlockCmd.Parameters.Add(new NpgsqlParameter { Value = AdvisoryLockKey });
+            try { await unlockCmd.ExecuteNonQueryAsync(ct); } catch { /* lock auto-releases on close */ }
         }
     }
 
