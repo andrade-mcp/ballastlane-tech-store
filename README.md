@@ -13,39 +13,24 @@
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
 
-A small ERP for a computer-parts store - customers, a product catalog (CPUs, GPUs,
-RAM, SSDs, motherboards, PSUs, cases, coolers), and **orders with line items that
-decrement stock on confirm**.
+A compact ERP-style application for a computer-parts store. It covers customer management, a categorized product catalog, and order processing with line items that **reserve/decrement stock when an order is confirmed**.
 
-Built end-to-end for the Ballastlane .NET technical interview: two ASP.NET Core
-Web APIs over a shared Clean Architecture core (Domain - Application -
-Infrastructure), a React 18 + Vite frontend, ~60 tests across four suites (Domain,
-Application, Infrastructure, API integration), and a single `docker compose up`
-that brings everything online with seeded demo data and credentials.
+I built this as an end-to-end submission for the Ballastlane .NET technical exercise: two ASP.NET Core Web APIs over a shared Clean Architecture core, a React 18 + Vite frontend, PostgreSQL persistence without EF/Dapper/MediatR, seeded demo data, Docker Compose for local startup, and roughly 60 automated tests across Domain, Application, Infrastructure, and API integration suites.
+
 Full brief: [`Technical Exercise - .Net`](docs/test.md).
 
-The brief's constraints are architectural, not domain-driven: Clean Architecture
-with strict layer separation, TDD across every layer, two Web APIs (one for CRUD
-on the domain, a second for user registration / login with authorized and
-anonymous endpoints), a data layer with **no EF, Dapper, or MediatR**, an
-independent business-logic layer, unit tests across every component, and a
-responsive frontend over seeded data.
+The domain is intentionally as a parts store gives the backend a real business rule to protect: once an order is confirmed, line prices are snapshotted and stock is decremented in a transaction. If two users try to confirm overlapping orders for the same SKU, the second confirmation is rejected through optimistic concurrency. That keeps the architecture from becoming a thin CRUD wrapper and gives the tests something meaningful to prove.
 
-A parts-store domain was a deliberate pick. Order confirmation gives the business
-layer a real invariant to defend - snapshot the line price, decrement stock,
-resolve write contention via optimistic concurrency on `row_version` - so the
-layered architecture earns its keep instead of degenerating into pass-through CRUD.
-The catalog has enough variety (eight categories, real SKUs) to make the
-frontend's table + filter + modal flows meaningful rather than placeholder.
+The implementation uses modern .NET, REST APIs, PostgreSQL, Docker, AWS-oriented deployment documentation, React, clean code, automated tests, and clear engineering trade-offs.
 
 **Repository:** <https://github.com/andrade-mcp/ballastlane-tech-store>
-**Live demo:** see [Live demo & deployment](#live-demo--deployment)
 
 ---
 
 ## Table of contents
 
 - [Highlights](#highlights)
+- [Submission fit](#submission-fit)
 - [Architecture](#architecture)
 - [Domain model](#domain-model)
 - [Tech stack](#tech-stack)
@@ -53,6 +38,7 @@ frontend's table + filter + modal flows meaningful rather than placeholder.
 - [Live demo & deployment](#live-demo--deployment)
 - [Project structure](#project-structure)
 - [Testing](#testing)
+- [Development history](#development-history)
 - [Engineering notes](#engineering-notes)
 - [GenAI usage](#genai-usage)
 - [Roadmap](#roadmap)
@@ -69,6 +55,22 @@ frontend's table + filter + modal flows meaningful rather than placeholder.
 - Optimistic concurrency on stock decrement at order confirmation (per-row `row_version`).
 - ~60 tests across four suites - Domain, Application, Infrastructure, API integration.
 - React 18 + Vite + Tailwind frontend with light/dark theming and a brand CTA component.
+
+---
+
+## Submission Requirements
+
+| Requirement | Where it is covered |
+|-------------|---------------------|
+| Clean Architecture | `Domain`, `Application`, `Infrastructure`, and API composition roots with one-way dependencies |
+| Two Web APIs | `Auth.Api` for registration/login/authorized checks, `Store.Api` for customers/products/orders |
+| CRUD over persisted data | Customer, product, and order endpoints backed by PostgreSQL repositories |
+| No EF, Dapper, or MediatR | Repositories use hand-written SQL through `Npgsql`; use cases are plain application services |
+| Independent business logic | Order/customer/product rules live outside controllers and outside persistence code |
+| Unit/integration testing | Domain, Application, Infrastructure, and API integration test suites |
+| Frontend integration | React/Vite UI consuming both APIs with JWT bearer auth |
+| Seeded demo data | Demo user, products, customers, and orders are created automatically on startup |
+| GenAI disclosure | Practical prompts, representative AI output, validation notes, and corrections documented below |
 
 ---
 
@@ -146,22 +148,6 @@ erDiagram
     }
 ```
 
-`Order.Confirm()` is the load-bearing piece of the model:
-
-1. Refuses to confirm a draft with zero lines.
-2. Snapshots each line's `UnitPrice` from the current product price so a later catalog
-   edit cannot retro-modify a closed order.
-3. Returns a list of stock decrements; the application layer applies them in a single
-   Postgres transaction with optimistic concurrency on `products.row_version`. Two
-   reps confirming overlapping orders for the same SKU? The second one's
-   `UPDATE … WHERE row_version = $X` updates zero rows and the transaction throws
-   `OutOfStockException`.
-
-Tests for this live in
-[`tests/BallastlaneTechStore.Domain.Tests/OrderTests.cs`](tests/BallastlaneTechStore.Domain.Tests/OrderTests.cs)
-and
-[`tests/BallastlaneTechStore.Api.Tests/StoreApiTests.cs`](tests/BallastlaneTechStore.Api.Tests/StoreApiTests.cs).
-
 ---
 
 ## Tech stack
@@ -188,7 +174,7 @@ and
 > step. Postgres is mapped to host port **5434** (not 5432) to avoid clashing with a
 > local install.
 
-### Prerequisites
+### Requirements
 
 - .NET 9 SDK
 - Node.js 20+
@@ -370,19 +356,23 @@ All suites are self-contained:
 - API integration boots the full ASP.NET host with the in-memory repos via
   `WebApplicationFactory` - no live PostgreSQL required.
 
-Total: ~60 tests, all green.
+Total: 60 tests, all green.
 
 ---
 
-## Engineering notes
+## Development history
 
-### Why no EF / Dapper / MediatR
+The work was committed in small, reviewable steps over three days: backend first, then frontend, then documentation/deployment polish. The commit history is intentionally atomic (`feat`, `fix`, `test`, `docs`, `style`, `chore`) so a reviewer can follow the design rather than reverse-engineer one large final commit.
 
-Forbidden by the brief. Repositories use `Npgsql` (the official PostgreSQL driver, not an
-ORM) with hand-written SQL and small mappers. Use cases are plain service classes;
-roughly 20 endpoints do not justify a mediator pipeline. In a project without that
-constraint, EF Core would be the default choice given the breadth of the model and the
-maturity of its migrations story.
+A few examples of the progression:
+
+- **Day 1 - backend foundation:** solution/projects, domain entities and invariants, application services/ports, Npgsql repositories, JWT auth, two APIs, and integration tests.
+- **Day 1 - frontend:** React/Vite scaffold, authenticated pages, server-state handling, forms, and the first pass of the UI.
+- **Day 2 - product polish:** theme tokens, status picker, seeded demo data, brand button, and README diagrams.
+- **Day 3 - deployment hardening:** production compose overlay, deployment runbook, migration race fix with a PostgreSQL advisory lock, and live-demo documentation.
+
+---
+
 
 ### Migrations
 
@@ -403,99 +393,228 @@ whole transaction with `OutOfStockException`, surfacing as `409 Conflict` to the
 The boundary lives behind `IOrderConfirmationUnitOfWork` so the application layer stays
 agnostic of the transaction mechanics.
 
-### NuGet pinning
-
-- `Swashbuckle.AspNetCore` - pinned to **7.x**. The 10.x line rearranges the
-  `Microsoft.OpenApi` namespaces and silently breaks `AddSwaggerGen` config.
-- `Microsoft.Extensions.*` - pinned to **9.0.0** to match the .NET 9 runtime.
-
-### Frontend theming
-
-Brand-default dark with an explicit light option. The choice persists in `localStorage`
-under a versioned key (`blc.theme`) so old eagerly-written values don't pin returning
-visitors. Theme tokens are CSS custom properties on `:root` / `.dark` - see
-[`web/ballastlane-tech-store-web/src/styles/globals.css`](web/ballastlane-tech-store-web/src/styles/globals.css).
-
 ---
 
 ## GenAI usage
 
-Required by the brief; also how the project was actually written. Claude Code in the
-editor. I use it for boilerplate, test enumeration, framework-syntax recall (tw classes,
-npgsql binding, mermaid grammar), refactors when I can spell the constraint out, and
-pasting stack traces back at it for triage. Auth, concurrency, schema - I write those
-by hand. The model is wrong often enough at that level that pasting costs more than
-typing.
+The exercise asks for GenAI disclosure, including prompts, representative output, validation, corrections, and edge-case handling. I used Claude Code as a senior-developer assistant during the build, mainly to speed up bounded work that I could review quickly: test enumeration, repetitive scaffolding, SQL syntax recall, frontend component polish, Docker/deployment troubleshooting, and README structure.
 
-A few prompts from this build, more or less verbatim:
+I did **not** use AI as the architect of the project. The two-API split, Clean Architecture boundaries, domain model, order-confirmation transaction, optimistic-concurrency strategy, repository ports, and test ordering were decided before prompting. My workflow was closer to pairing with a fast junior/mid-level assistant: give it a narrow task, review the output, run the tests, and keep or rewrite only what survived review.
 
-> tests for this. xunit fluentassertions. cover the cant-do paths - cant add after
-> Confirmed, Confirm with no lines throws, Confirm reprices from a dict of current
-> prices, Cancel from Fulfilled throws, Cancel idempotent. one file no class fixtures.
+### Example prompt requested by the brief: task API scaffold
 
-Got most of it back. Tests asserted on `order.Status` after `Confirm()` but missed the
-`StockDecrement` list it returns - that's the load-bearing bit. Added the per-line
-assertion.
+This is the type of prompt I would use for the task-management API example from the brief. It is intentionally specific because vague prompts tend to produce controller-heavy code that mixes HTTP, persistence, and business rules.
 
-> npgsql parameterised update. decrement products.stock_on_hand by $qty only if
-> row_version=$x AND stock>=$qty. bump row_version. return rows affected. no dapper.
+> build a small asp.net core task api scaffold using clean architecture.
+>
+> constraints:
+> - .net 9 / c#
+> - no ef core, no dapper, no mediatr
+> - assume a basic User already exists
+> - tasks belong to a user
+>
+> create:
+> - TaskItem domain entity with id, userId, title, description, status, dueDate, createdAt, updatedAt
+> - TaskStatus enum: Todo, InProgress, Done, Cancelled
+> - application service: create, get by id, list by user, update, delete
+> - repository interface in Application only
+> - controller endpoints with normal REST verbs
+> - validation: title required, due date cannot be in the past on create, only owner can read/update/delete
+> - xunit tests for invalid title, past due date, unauthorized access, update, delete
+>
+> keep controllers thin. business rules stay in domain/application. no solution dump - show representative files only.
 
-OK. Wrapped it in a tx with the order header + items replace, behind
-`IOrderConfirmationUnitOfWork` so the application layer stays mockable.
+Representative output I would expect from that prompt is an entity + service shape like this:
 
-> tw v3 button. 2px orange gradient ring fd450b-->fd7f0b, dark inner that wipes right on
-> hover (transition-[width] group-hover:w-0), white text on top. like the ballastlane
-> site. no shadcn.
+```csharp
+public sealed class TaskItem
+{
+    public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
+    public string Title { get; private set; }
+    public string? Description { get; private set; }
+    public TaskStatus Status { get; private set; }
+    public DateOnly DueDate { get; private set; }
 
-First version used `bg-background` for the inner fill - white text vanished in light
-mode until hover. Pinned the dark to `#0b0b0b`, switched text to
-`text-[#fd450b] dark:text-white group-hover:text-white`. Two iterations.
+    public static TaskItem Create(Guid userId, string title, string? description, DateOnly dueDate, DateOnly today)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            throw new ValidationException("Title is required.");
 
-> tiny pg migration runner. embedded .sql under a prefix, lex order, idempotent
-> __migrations ledger, NpgsqlDataSource. ~80 lines.
+        if (dueDate < today)
+            throw new ValidationException("Due date cannot be in the past.");
 
-Lifted it behind `IMigrationRunner` so the test factory can no-op it via
-`WebApplicationFactory.ConfigureTestServices`. Otherwise kept.
+        return new TaskItem(Guid.NewGuid(), userId, title.Trim(), description, TaskStatus.Todo, dueDate);
+    }
+}
+```
 
-> ```
-> System.IO.IOException: Failed to bind to address http://127.0.0.1:5101: address already in use.
->    at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder...
-> ```
-> windows. one-liner to kill it.
+I would not paste that blindly. I would check ownership checks, validation placement, exception mapping, SQL parameterization, and tests before accepting it.
 
-Got the `Get-NetTCPConnection -LocalPort … | Stop-Process -Force` chain. Used it half a
-dozen times during the dev loop. Faster than recalling the cmdlet from memory.
+### AI commands that match the actual build history
 
-### What I don't do
+Below are representative prompts from the project, written in the same short, practical style I used while building. They follow the git history: bootstrap, domain/TDD, application ports, infrastructure, APIs, frontend, Docker, deployment, and documentation.
 
-One-shot scaffolds. "Fix it" replies - I paste the actual compiler error. Trust tests
-that pass first time (re-read them; they often assert on properties that don't exist or
-mix NSubstitute syntax with Moq idioms). Let the model own architecture - the two-API
-split, the `row_version` concurrency design, the `IOrderConfirmationUnitOfWork` port,
-the Domain --> Application --> Infrastructure --> Api test ordering, and the brand-default
-dark theme came out of the planning pass before any prompt was issued.
+#### Phase 1 - Bootstrap and backend
 
----
+> create the solution layout for this exercise. .net 9. projects: Domain, Application, Infrastructure, Auth.Api, Store.Api. tests for domain/application/infra/api. wire references clean architecture style. no ef, no dapper, no mediatr.
 
-## Roadmap
+What I kept: the project split and reference direction. What I checked manually: that `Domain` had no dependency on anything else, `Application` depended only on `Domain`, and API projects were composition roots only.
 
-Items considered, scoped out of the deliverable, and acknowledged as the next iteration:
+> domain entities for a small computer parts store. User, Customer, Product, Order, OrderItem. include enums for role, customer status, product category, order status. put invariants in methods, not controllers. order can confirm only with lines, cannot add lines after confirm, cancel fulfilled should fail.
 
-- **Stock-movement ledger** - `stock_movements (product_id, qty_delta, reason, order_id?, occurred_at)`
-  table to replace the single `stock_on_hand` column. Foundation for the next item.
-- **Refund / restock flow** - Cancelling a Confirmed order should release allocated
-  stock; left out because doing it correctly requires the ledger above.
-- **Refresh tokens** - login currently issues a single 8-hour JWT.
-- **Role-based authorisation** - `Role` is on the user model but not enforced; manager-only
-  actions (delete, refund) would gate on it.
-- Soft delete + audit columns; multi-tenancy (`TenantId` slots in cleanly given the repo
-  pattern).
-- Tax engine; multi-currency; discount / promo codes; email + invoice generation.
-- Redis cache for the catalog (job-spec bonus); rate limiting on `/api/auth/login`.
-- API versioning (`/api/v1/*` + `Asp.Versioning.Http`).
-- OpenTelemetry export to an OTLP collector.
-- CI/CD - GitHub Actions: build + test on push, container build on tag.
-- Playwright E2E covering the golden path.
+What I changed: I tightened the order state transitions myself. AI is decent at generating entities, but it often treats state machines as loose property setters, which would weaken the exercise.
+
+> tests for this. xunit + fluentassertions. cover the cant-do paths: cant add lines after confirmed, confirm with no lines throws, confirm reprices from current product prices, cancel fulfilled throws, cancel cancelled is idempotent. one file, no fixtures.
+
+What I changed: the first output asserted mostly on `Order.Status`. I added assertions for the stock-decrement list returned by `Confirm()`, because that is the important business output used by the transaction.
+
+> application layer ports and services. interfaces for users/customers/products/orders. services should not know npgsql or asp.net. use simple request/response dtos. throw app exceptions: not found, conflict, validation, out of stock.
+
+What I kept: the service shape and exception categories. What I corrected: a couple of generated methods tried to return repository entities directly; I moved them back through DTO mapping so the API contract stayed separate.
+
+> in-memory test repos for application tests. no mocks unless needed. keep behavior close to repo contracts. make auth service tests cover duplicate email, bad login, happy login, me endpoint data.
+
+What I kept: in-memory fakes. This made the application tests easier to read than a heavy mock setup.
+
+> npgsql repositories for user/customer/product/order. hand-written sql. map rows manually. no dapper helpers. keep sql boring and parameterized.
+
+What I reviewed carefully: every query parameter, nullable field, enum conversion, and transaction boundary. SQL is an area where I do not trust generated code without reading it line by line.
+
+> npgsql update for product stock. decrement stock_on_hand by qty only when id matches, row_version matches, and stock_on_hand >= qty. increment row_version. return rows affected. no dapper, no ef.
+
+What I kept: the conditional `UPDATE` shape. What I added: wrapping order persistence + stock updates in a single unit-of-work transaction so a partial confirmation could not be committed.
+
+> tiny pg migration runner. embedded .sql files under this assembly prefix, lexicographic order, idempotent __migrations table, NpgsqlDataSource, cancellation token. keep it boring.
+
+What I changed: I put it behind an abstraction so the API integration test factory could replace it. That kept tests fast and avoided a live PostgreSQL dependency.
+
+> bcrypt password hasher and jwt issuer for .net 9. use options for issuer/audience/key/expiry. tests should verify password roundtrip and token has expected claims.
+
+What I checked: token signing key handling, claim names, expiry, and that tests did not assert on fragile token string internals.
+
+> auth api controllers: register, login, me. thin controllers. problem details middleware. swagger bearer config. authorized and anonymous endpoint because exercise asks for both.
+
+What I corrected: AI initially over-handled validation in the controller. I moved it back into the service/domain path and left the controller as HTTP translation.
+
+> store api controllers for customers/products/orders. jwt required. current user from claims helper. crud endpoints plus confirm order. return 409 for business conflicts.
+
+What I validated: status codes, route naming, authorization attributes, and exception mapping.
+
+> webapplicationfactory tests for both APIs with in-memory repos. cover register/login/me, customer crud, product crud, create order, confirm order. no real postgres.
+
+What I kept: the integration-test strategy. What I changed: the test host setup so migrations/seeding could be no-oped during API tests.
+
+#### Phase 2 - Frontend and UI
+
+> vite react ts app for this api. pages: login, register, dashboard, customers, products, orders, order detail. use react-query and axios bearer interceptor. keep components simple.
+
+What I kept: the page structure and React Query setup. What I reviewed manually: token persistence, `/me` refresh flow, and whether failed auth cleared state correctly.
+
+> react-hook-form + zod forms for login/register/customer/product. show server validation messages without making the UI noisy.
+
+What I changed: I simplified some generated form abstractions. For this size of app, readable local forms were better than a generic form factory.
+
+> status picker component for customer grid. click badge opens popover with allowed next statuses. generic enough for reuse but don't over-engineer.
+
+What I kept: the reusable `StatusPicker<T>` idea. What I adjusted: keyboard/focus behavior and styling so it did not feel like a raw dropdown in the table.
+
+> tailwind v3 theme tokens for ballastlane-like dark default. orange #fe5a0b, serif headings, css variables, light/dark toggle, persist in localStorage.
+
+What I changed: the first implementation wrote the theme on initial mount, which could pin stale values. I changed persistence so it only writes when the user actually toggles.
+
+> tailwind v3 brand button. orange gradient border, dark inner fill, white text, hover wipe from left to right. no shadcn. keep it accessible and reusable.
+
+What I corrected: the first pass used a theme background that made text disappear in light mode. I pinned the inner fill to a dark value and made the text color explicit.
+
+> avatar menu in the header. initials, user email, theme toggle, sign out. replace the loose sign-out button.
+
+What I validated: sign-out cleared the token, query cache, and protected UI state.
+
+> this popover background is transparent in tailwind. inspect likely missing tokens in tailwind config and fix without changing component behavior.
+
+What I kept: the diagnosis. The generated answer pointed to missing `popover` / `secondary` tokens, which matched the actual issue.
+
+#### Phase 3 - Seed data, theming, and polish
+
+> replace placeholder seed data with believable computer-parts demo data. 10 products across cpu/gpu/ram/ssd/motherboard/psu/case/cooler. 6 customers across lead/prospect/active/churned. 3 orders in different statuses.
+
+What I changed: I edited the seed to make the demo coherent and not random. Seed data is part of the presentation, so it needed to feel intentional.
+
+> make product grid price and stock columns centered. minimal diff only.
+
+What I kept: the small patch. This is exactly the type of low-risk cleanup where AI is useful.
+
+> read this README and make it sound like an experienced .net dev wrote it. keep it honest, avoid marketing fluff, emphasize tradeoffs, tests, no orm, two apis, concurrency.
+
+What I changed: I kept the structure but rewrote sections that sounded too polished or generic. The README should read like a technical submission, not a landing page.
+
+> add mermaid diagrams for component architecture and er model. keep labels short so github renders cleanly.
+
+What I validated: GitHub-flavored Mermaid syntax and whether the diagrams matched the actual code structure.
+
+#### Phase 4 - Docker and deployment
+
+> docker compose for postgres 16 + auth api + store api. map postgres to 5434. APIs expose 5101 and 5102. use env vars for db and jwt. one-command local startup.
+
+What I checked: container networking, local port collisions, and whether the APIs could run migrations on startup.
+
+> production compose overlay. bind api ports to localhost only, add web container with nginx, keep postgres internal, env-file friendly. include deploy readme commands.
+
+What I changed: I reviewed port exposure manually. Production compose files are easy to get subtly wrong, especially around what is publicly reachable.
+
+> compose overlay is still binding both base and prod ports. explain why and fix with the smallest yaml change.
+
+What I kept: the diagnosis that Compose merges port lists. The fix was to use `!override` so the production overlay replaced the base port mapping instead of appending to it.
+
+> two api containers race on migration startup. postgres duplicate key on pg_type_typname_nsp_index around __migrations creation. suggest safe fix.
+
+What I kept: the advisory-lock approach. I wrapped the migration runner with a PostgreSQL advisory lock so cold starts from both APIs serialize migration execution.
+
+> here is the kestrel error. windows command to find and kill whatever owns port 5101.
+
+What I used: a quick PowerShell command to find the process by local port and stop it. This was development-loop help, not committed application logic.
+
+#### Phase 5 - Post-deploy docs and final README
+
+> add live demo section. include demo credentials, deployment shape, and what aws services would be used. keep it factual, not buzzwordy.
+
+What I checked: that the README did not claim more than the project actually supported.
+
+> write a concise development history from these commits. show progression over 3 days. don't paste the whole git log, summarize phases.
+
+What I kept: the phase summary now in this README. It helps reviewers see that the project was built incrementally and tested along the way.
+
+> tighten genai section with realistic prompts and correction notes. it should show ai helped me move faster, not that ai designed the system.
+
+What I changed: I rewrote the section to make the senior-developer judgment explicit: prompts, output, validation, corrections, and boundaries.
+
+### How I validated AI output
+
+I treated AI output like a pull request from another developer:
+
+- Ran `dotnet test` across Domain, Application, Infrastructure, and API integration suites.
+- Checked that tests covered the business behavior, not just property assignments.
+- Reviewed dependency direction so Domain/Application did not pick up ASP.NET, Npgsql, or frontend concerns.
+- Read SQL manually for parameterization, enum mapping, transaction boundaries, and concurrency behavior.
+- Exercised the frontend against the running APIs and checked the browser console.
+- Rejected generated code that hid business rules in controllers, invented dependencies, mixed Moq/NSubstitute syntax, or asserted on implementation details.
+- Kept AI-generated changes small enough to review as a normal commit.
+
+### Corrections I made to AI output
+
+- **Domain tests:** added assertions around returned stock decrements, not only order status.
+- **Application services:** removed direct entity leaking from generated service responses.
+- **Controllers:** moved validation/business decisions back out of controllers.
+- **SQL:** wrapped order confirmation and stock updates in a transaction behind `IOrderConfirmationUnitOfWork`.
+- **Migration runner:** added an abstraction for test replacement, then later serialized startup with a PostgreSQL advisory lock.
+- **Frontend theme:** fixed light-mode contrast on the brand button and prevented stale localStorage theme values.
+- **Docker compose:** corrected production port merging with `!override`.
+- **README:** removed vague AI-sounding claims and replaced them with concrete engineering trade-offs.
+
+### What I deliberately did not delegate
+
+I did not ask AI to generate the whole project in one shot. I also did not let it choose the architecture, authentication flow, database schema, concurrency strategy, deployment model, or testing strategy. Those are the parts I expect to defend in review, so I kept ownership of them and used AI only on bounded, reviewable tasks.
 
 ---
 
