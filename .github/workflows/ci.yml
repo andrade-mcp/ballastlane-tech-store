@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - 'gh-pages'
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (.NET 9)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore BallastlaneTechStore.sln
+
+      - name: Build
+        run: dotnet build BallastlaneTechStore.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test BallastlaneTechStore.sln --configuration Release --no-build --verbosity normal
+
+  frontend:
+    name: Frontend (Vite + React)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/ballastlane-tech-store-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/ballastlane-tech-store-web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        env:
+          VITE_AUTH_API: https://auth.ballastlane-tech.store
+          VITE_STORE_API: https://api.ballastlane-tech.store
+        run: npm run build
