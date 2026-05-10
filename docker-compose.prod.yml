@@ -20,7 +20,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       Jwt__SigningKey: "${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}"
       Cors__AllowedOrigins__0: "${PUBLIC_WEB_ORIGIN:?PUBLIC_WEB_ORIGIN is required}"
-    ports:
+    # !override replaces the base list (which would otherwise merge and bind
+    # 5101 twice — to 0.0.0.0 from base and 127.0.0.1 from here — and crash).
+    ports: !override
       - "127.0.0.1:5101:8080"
     restart: unless-stopped
 
@@ -29,7 +31,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       Jwt__SigningKey: "${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}"
       Cors__AllowedOrigins__0: "${PUBLIC_WEB_ORIGIN:?PUBLIC_WEB_ORIGIN is required}"
-    ports:
+    ports: !override
       - "127.0.0.1:5102:8080"
     restart: unless-stopped
 
