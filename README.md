@@ -22,8 +22,7 @@ Web APIs over a shared Clean Architecture core (Domain - Application -
 Infrastructure), a React 18 + Vite frontend, ~60 tests across four suites (Domain,
 Application, Infrastructure, API integration), and a single `docker compose up`
 that brings everything online with seeded demo data and credentials.
-Full brief: [`docs/test.md`](docs/test.md) (original PDF at
-[`docs/test.pdf`](docs/test.pdf)).
+Full brief: [`Technical Exercise - .Net`](docs/test.md).
 
 The brief's constraints are architectural, not domain-driven: Clean Architecture
 with strict layer separation, TDD across every layer, two Web APIs (one for CRUD
@@ -39,8 +38,8 @@ layered architecture earns its keep instead of degenerating into pass-through CR
 The catalog has enough variety (eight categories, real SKUs) to make the
 frontend's table + filter + modal flows meaningful rather than placeholder.
 
-**Live demo:** <https://ballastlane-tech.store> · sign in with `demo@ballastlane.dev` / `Demo!2026`
 **Repository:** <https://github.com/andrade-mcp/ballastlane-tech-store>
+**Live demo:** see [Live demo & deployment](#live-demo--deployment)
 
 ---
 
@@ -51,6 +50,7 @@ frontend's table + filter + modal flows meaningful rather than placeholder.
 - [Domain model](#domain-model)
 - [Tech stack](#tech-stack)
 - [Get started](#get-started)
+- [Live demo & deployment](#live-demo--deployment)
 - [Project structure](#project-structure)
 - [Testing](#testing)
 - [Engineering notes](#engineering-notes)
@@ -247,6 +247,54 @@ dotnet run --project src/BallastlaneTechStore.Store.Api
 
 The frontend reads `VITE_AUTH_API` / `VITE_STORE_API` from `.env`; defaults already point
 at `http://localhost:5101` / `http://localhost:5102`.
+
+---
+
+## Live demo & deployment
+
+Live at **<https://ballastlane-tech.store/>** - sign in with `demo@ballastlane.dev` /
+`Demo!2026`. The seed runs on a fresh database, so the demo credentials work against
+the live deployment as well as locally.
+
+Hosted on **AWS**, running the same images built from `docker-compose.prod.yml`.
+
+### AWS resources
+
+| Component                | AWS service                                                                                            |
+|--------------------------|--------------------------------------------------------------------------------------------------------|
+| Container runtime        | **ECS on Fargate** - one task definition per service (`auth-api`, `store-api`, `web`)                  |
+| Image registry           | **Amazon ECR** - private repo per service, tagged with branch + commit SHA                             |
+| Database                 | **Amazon RDS for PostgreSQL 16** - same migration ledger applies on first boot                         |
+| Edge / TLS / routing     | **Application Load Balancer + AWS Certificate Manager** - host-based routing for the API + web targets |
+| DNS                      | **Route 53** - hosted zone for `ballastlane-tech.store`                                                |
+| Secrets                  | **AWS Secrets Manager** - JWT signing key and DB credentials, injected as env into the ECS task        |
+| Logs                     | **Amazon CloudWatch Logs** - stdout from both APIs and the nginx web container                         |
+| CI identity              | **IAM OIDC role** - GitHub Actions assumes a deploy role; no long-lived AWS keys in the repo           |
+
+### CI/CD pipeline
+
+GitHub Actions on push to `main`:
+
+1. **Restore, build, test** - `dotnet restore`, `dotnet build`, `dotnet test` across
+   all four suites (Domain, Application, Infrastructure, API integration). The
+   frontend runs `npm ci` and `npm run build` as an early compile check. Pipeline
+   aborts on red.
+2. **Authenticate to AWS** - `aws-actions/configure-aws-credentials@v4` assumes the
+   deploy role via **OIDC**; no static `AWS_ACCESS_KEY_ID` lives in repo secrets.
+3. **Build & push images** - Docker buildx builds `auth-api`, `store-api`, and `web`
+   in parallel, tagging each as `${ECR_URI}/<service>:${{ github.sha }}` plus
+   `:latest`, and pushes to **ECR**.
+4. **Render task definitions** -
+   `aws-actions/amazon-ecs-render-task-definition@v1` substitutes the new image
+   SHAs into the existing task-def JSON checked into the repo.
+5. **Rolling deploy** - `aws-actions/amazon-ecs-deploy-task-definition@v2` updates
+   each ECS service. The ALB drains old tasks once new tasks pass target-group
+   health checks, then terminates them. **Rollback** is a re-run of the previous
+   workflow with the prior SHA - no manual console steps.
+
+Migrations and the demo seed stay owned by the application: each API runs its
+embedded migration ledger on startup, so the pipeline does not need a separate
+`migrate` step. Adding one is a `0002_*.sql` drop-in, not a workflow change.
 
 ---
 
