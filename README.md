@@ -242,6 +242,13 @@ Live at **<https://ballastlane-tech.store/>** - sign in with `demo@ballastlane.d
 `Demo!2026`. The seed runs on a fresh database, so the demo credentials work against
 the live deployment as well as locally.
 
+### Screens
+
+| Sign in | Dashboard | Customers |
+|---|---|---|
+| ![Sign-in page with brand CTA, dark theme, demo credentials hint](docs/screens/screen1.png) | ![Dashboard with KPI cards, order pipeline by status, and low-stock list](docs/screens/screen2.png) | ![Customers list filtered by lifecycle status, with edit/delete actions](docs/screens/screen3.png) |
+| Sign-in - brand CTA, dark theme by default, demo creds shown inline. | Dashboard - KPI tiles, order pipeline grouped by status, low-stock watchlist. | Customers - lifecycle-status filter chips, inline edit/delete, paginated table. |
+
 Hosted on **AWS**, running the same images built from `docker-compose.prod.yml`.
 
 ### AWS resources
