@@ -53,10 +53,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">A snapshot of orders, customers and inventory.</p>
-      </div>
+      <h1 className="text-2xl font-semibold">Dashboard</h1>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Open orders" value={String(openCount)} />

@@ -58,10 +58,7 @@ export function CustomersPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Customers</h1>
-          <p className="text-sm text-muted-foreground">Leads, prospects, and active accounts.</p>
-        </div>
+        <h1 className="text-2xl font-semibold">Customers</h1>
         <BrandButton onClick={() => setCreating(true)}>New customer</BrandButton>
       </div>
 

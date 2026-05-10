@@ -52,10 +52,7 @@ export function ProductsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Products</h1>
-          <p className="text-sm text-muted-foreground">Catalog with live stock counts.</p>
-        </div>
+        <h1 className="text-2xl font-semibold">Products</h1>
         <BrandButton onClick={() => setCreating(true)}>New product</BrandButton>
       </div>
 

@@ -46,10 +46,7 @@ export function OrdersPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Orders</h1>
-          <p className="text-sm text-muted-foreground">The sales pipeline.</p>
-        </div>
+        <h1 className="text-2xl font-semibold">Orders</h1>
         <BrandButton onClick={() => setCreating(true)}>New order</BrandButton>
       </div>
 
