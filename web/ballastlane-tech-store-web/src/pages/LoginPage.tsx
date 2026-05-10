@@ -29,7 +29,7 @@ export function LoginPage() {
             <img src="/logo.png" alt="Ballastlane" className="h-12 w-auto" />
             <div className="leading-tight">
               <h1 className="text-xl font-semibold">Sign in</h1>
-              <p className="text-sm text-muted-foreground">BallastlaneTechStore</p>
+              <p className="text-sm text-muted-foreground">Ballastlane Tech Store</p>
             </div>
           </div>
           <button type="button" className="btn-ghost" onClick={toggle}>{theme === "dark" ? "Light" : "Dark"}</button>
